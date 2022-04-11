@@ -106,6 +106,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         print(f'avg. steps: {self.stepsdone / rl.INFO_INTERVAL}')
         print(f'max. steps: {self.maxsteps}')
         print(f'high score: {self.maxscore}')
+        print(f'avg.score: {self.maxscore / self.stepsdone}')
         self.maxsteps = 0
         self.stepsdone = 0
         self.maxscore = 0

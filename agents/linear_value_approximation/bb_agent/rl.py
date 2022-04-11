@@ -4,17 +4,17 @@ import settings as s
 
 
 STATE_F_LENGTH = 16
-GAMMA = 0.83
-ALPHA = 0.02
-EXPERIENCE_BUFFER_EPISODES = 5000
-BATCH_SIZE = 700
+GAMMA = 0.8
+ALPHA = 0.07
+EXPERIENCE_BUFFER_EPISODES = 1000
+BATCH_SIZE = 500
 SOFTMAX_TEMP_TRAIN = 2
-SOFTMAX_TEMP_PLAY = 3
-EPSILON_TRAIN = 0.3
+SOFTMAX_TEMP_PLAY = 1.5
+EPSILON_TRAIN = 0.15
 EPSILON_PLAY = 0.0
-EPSILON_INVALID = 0.07
+EPSILON_INVALID = 0.03
 CLIP_MIN = 0.0000001
-SCORE_WEIGHT = 0.1
+SCORE_WEIGHT = 0
 
 #custom events
 E_IN_BOMB_RANGE = "IN_BOMB_RANGE"   # ended a turn in range of a bomb
@@ -40,7 +40,7 @@ REWARDS = {
         e.MOVED_DOWN: -1,
         e.WAITED: -1,
         e.INVALID_ACTION: -8,
-        e.BOMB_DROPPED: 15,
+        e.BOMB_DROPPED: 0,
         e.BOMB_EXPLODED: 0,
         e.CRATE_DESTROYED: 7,
         e.COIN_FOUND: 7,
@@ -50,7 +50,7 @@ REWARDS = {
         e.GOT_KILLED: -150,
         e.OPPONENT_ELIMINATED: 20,
         e.SURVIVED_ROUND: 0,
-        E_IN_BOMB_RANGE: -20,
+        E_IN_BOMB_RANGE: -50,
         E_TOOK_COVER: 30,
         E_LONG_GAME: -50,
         E_CRATE_DESTROYED_SAFELY: 100,
@@ -393,9 +393,6 @@ def update_beta(batch, old_beta):
         if sb_len > 0:
             sbnp = np.array(sub_batch)
             summ = np.sum(sbnp[:, :-2].T * (sbnp[:, -2] - np.dot(sbnp[:, :-2], old_beta[a,:])), axis=1)
-            # for elem in sub_batch:
-            #     sum += elem[0].T * (elem[1] - elem[0] * old_beta[a])
-            # breakpoint()
             new_beta[a,:] = old_beta[a,:] + (ALPHA * weight / sb_len) * summ
     
     return new_beta
@@ -409,7 +406,7 @@ def select_action(self, state):
     if self.train:
         return epsilon_greedy_select(state, ret, True)
     else:
-        return softmax_select(state, ret, False)
+        return epsilon_greedy_select(state, ret, False)
 
 
 def softmax_select(state, rewards, train):
@@ -417,7 +414,7 @@ def softmax_select(state, rewards, train):
         mult = 1 / SOFTMAX_TEMP_TRAIN
     else:
         mult = 1 / SOFTMAX_TEMP_PLAY
-    distrib = np.exp(rewards*mult) / np.sum(np.exp(rewards*mult))
+    distrib = np.exp(rewards*mult) / np.clip(np.sum(np.exp(rewards*mult)), a_min=CLIP_MIN, a_max=None)
     return np.random.choice(ACTIONS, p=distrib)
 
 
@@ -428,9 +425,9 @@ def epsilon_greedy_select(state, rewards, train):
         eps = EPSILON_PLAY
     roll = np.random.rand()
     if roll < eps:
-        if roll < EPSILON_INVALID and (not train):
+        if roll < EPSILON_INVALID:
             # select random action
-            return np.random.choice(ACTION)
+            return np.random.choice(ACTIONS)
         else:
             # select random valid action with higher probability
             valid = get_valid_actions(state)
